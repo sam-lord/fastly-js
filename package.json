@@ -1,5 +1,5 @@
 {
-  "name": "fastly-js",
+  "name": "@sam-lord/fastly-js",
   "version": "0.1.0",
   "description": "Basic Fastly API",
   "main": "index.js",
