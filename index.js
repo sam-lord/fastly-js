@@ -15,7 +15,7 @@ class Fastly {
         this._apiKey = config.apiKey;
         this._baseUrl = 'https://api.fastly.com';
         this._allowUntrustedRoot = config.allowUntrustedRoot;
-        this._tlsConfigurationPromise = _fetchList('/tls/configurations').then(res => {
+        this._tlsConfigurationPromise = this._fetchList('/tls/configurations').then(res => {
             return res.data.find(config => config.name === config.tlsConfigurationName).id;
         });
     }
@@ -43,10 +43,10 @@ class Fastly {
 
         const getUrl = () => urlObj.pathName + '?' + searchParams.toString();
 
-        const result = await _fetch(getUrl(), Methods.GET).then(res => res.json());
+        const result = await this._fetch(getUrl(), Methods.GET).then(res => res.json());
         while (result.meta.current_page < result.meta.total_pages) {
             searchParams.set('page_number', (parseInt(searchParams.get('page_number')) + 1).toString());
-            const nextResult = await _fetch(getUrl(), Methods.GET).then(res => res.json());
+            const nextResult = await this._fetch(getUrl(), Methods.GET).then(res => res.json());
             result.data.push(nextResult.data);
             if ('included' in result && 'included' in nextResult) {
                 result.included.push(nextResult.included);
@@ -57,7 +57,7 @@ class Fastly {
     createPrivateKey(key, domain) {
         // Keys will be created for each renewal, so are formatted with the date created
         const keyName = `${domain}-${(new Date()).toISOString()}`;
-        return _fetch('/tls/private_keys', Methods.DELETE, {
+        return this._fetch('/tls/private_keys', Methods.POST, {
             data: {
                 type: 'tls_private_key',
                 attributes: {
@@ -65,27 +65,27 @@ class Fastly {
                     name: keyName
                 }
             }
-        });
+        }).then(res => res.json());
     }
 
     deletePrivateKey(id) {
         if (!id) {
             throw new Error('No ID found while deleting private key');
         }
-        return _fetch('/tls/private_keys/' + id, Methods.DELETE);
+        return this._fetch('/tls/private_keys/' + id, Methods.DELETE);
     }
 
     async getCertificateByDomain(domain) {
         const apiUrl = '/tls/bulk/certificates';
         const searchParams = new URLSearchParams();
         searchParams.set('filter[tls_domain.id][match]', domain);
-        const res = await _fetchList(`${apiUrl}?${searchParams.toString()}`);
+        const res = await this._fetchList(`${apiUrl}?${searchParams.toString()}`);
         // Usually should be first entry, but partial matches are included so this finds the first certificate with matching domain
         return res.data.find(certificate => certificate.relationships.tls_domains.find(tlsDomain => tlsDomain === domain));
     }
     
     async createCertificate(certificate, intermediates) {
-        return _fetch('/tls/bulk_certificates', Methods.POST, {
+        return this._fetch('/tls/bulk_certificates', Methods.POST, {
             data: {
                 type: 'tls_bulk_certificate',
                 attributes: {
@@ -104,11 +104,11 @@ class Fastly {
                     }
                 }
             }
-        });
+        }).then(res => res.json());
     }
 
     updateCertificate(id, certificate, intermediates) {
-        return _fetch('/tls/bulk_certificates/' + id, Methods.PATCH, {
+        return this._fetch('/tls/bulk_certificates/' + id, Methods.PATCH, {
             data: {
                 id: id,
                 type: 'tls_bulk_certificate',
@@ -118,14 +118,14 @@ class Fastly {
                     intermediates_blob: intermediates
                 }
             }
-        });
+        }).then(res => res.json());
     }
     
     deleteCertificate(id) {
         if (!id) {
             throw new Error('No ID found while deleting certificate');
         }
-        return _fetch('/tls/bulk_certificates/' + id, Methods.DELETE);
+        return this._fetch('/tls/bulk_certificates/' + id, Methods.DELETE);
     }
 }
 
