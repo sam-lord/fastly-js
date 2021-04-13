@@ -41,7 +41,7 @@ class Fastly {
         searchParams.set('page_number', '1');
         searchParams.set('page_size', '20');
 
-        const getUrl = () => urlObj.pathName + '?' + searchParams.toString();
+        const getUrl = () => urlObj.pathname + '?' + searchParams.toString();
 
         const result = await this._fetch(getUrl(), Methods.GET).then(res => res.json());
         while (result.meta.current_page < result.meta.total_pages) {
