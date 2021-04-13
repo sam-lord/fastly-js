@@ -84,7 +84,7 @@ class Fastly {
         return res.data.find(certificate => certificate.relationships.tls_domains.find(tlsDomain => tlsDomain === domain));
     }
     
-    async createCertificate() {
+    async createCertificate(certificate, intermediates) {
         return _fetch('/tls/bulk_certificates', Methods.POST, {
             data: {
                 type: 'tls_bulk_certificate',
