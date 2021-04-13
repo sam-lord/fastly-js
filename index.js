@@ -1,4 +1,5 @@
 const fetch = require('node-fetch');
+const {readFile} = require('fs').promises;
 
 const Methods = {
     DELETE: 'DELETE',
@@ -9,12 +10,15 @@ const Methods = {
 
 class Fastly {
     /**
-     * @param config { apiKey, tlsConfigurationName, allowUntrustedRoot }
+     * @param config { apiKey, tlsConfigurationName, allowUntrustedRoot, rootCertificate }
      */
     constructor(config) {
         this._apiKey = config.apiKey;
         this._baseUrl = 'https://api.fastly.com';
         this._allowUntrustedRoot = config.allowUntrustedRoot;
+        if (this._allowUntrustedRoot) {
+            this._rootCertificatePromise = readFile(config.rootCertificate);
+        }
         this._tlsConfigurationPromise = this._fetchList('/tls/configurations').then(res => {
             return res.data.find(config => config.name === config.tlsConfigurationName).id;
         });
@@ -52,6 +56,7 @@ class Fastly {
                 result.included.push(nextResult.included);
             }
         }
+        return result;
     }
 
     createPrivateKey(key, domain) {
@@ -81,17 +86,19 @@ class Fastly {
         searchParams.set('filter[tls_domain.id][match]', domain);
         const res = await this._fetchList(`${apiUrl}?${searchParams.toString()}`);
         // Usually should be first entry, but partial matches are included so this finds the first certificate with matching domain
-        return res.data.find(certificate => certificate.relationships.tls_domains.find(tlsDomain => tlsDomain === domain));
+        return res.data.find(certificate => certificate.relationships.tls_domains.data.find(tlsDomain => tlsDomain.id === domain)) || null;
     }
     
     async createCertificate(certificate, intermediates) {
-        return this._fetch('/tls/bulk_certificates', Methods.POST, {
+        return this._fetch('/tls/bulk/certificates', Methods.POST, {
             data: {
                 type: 'tls_bulk_certificate',
                 attributes: {
                     allow_untrusted_root: this._allowUntrustedRoot,
                     cert_blob: certificate,
-                    intermediates_blob: intermediates
+                    intermediates_blob: this._allowUntrustedRoot
+                        ? `${intermediates}${await this._rootCertificatePromise}`
+                        : intermediates
                 },
                 relationships: {
                     tls_configurations: {
@@ -107,15 +114,18 @@ class Fastly {
         }).then(res => res.json());
     }
 
-    updateCertificate(id, certificate, intermediates) {
-        return this._fetch('/tls/bulk_certificates/' + id, Methods.PATCH, {
+    async updateCertificate(id, certificate, intermediates) {
+        console.log('Intermediates:\n' + `${intermediates}${await this._rootCertificatePromise}`);
+        return this._fetch('/tls/bulk/certificates/' + id, Methods.PATCH, {
             data: {
                 id: id,
                 type: 'tls_bulk_certificate',
                 attributes: {
                     allow_untrusted_root: this._allowUntrustedRoot,
                     cert_blob: certificate,
-                    intermediates_blob: intermediates
+                    intermediates_blob: this._allowUntrustedRoot
+                        ? `${await this._rootCertificatePromise}${intermediates}`
+                        : intermediates
                 }
             }
         }).then(res => res.json());
