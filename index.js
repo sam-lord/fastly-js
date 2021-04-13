@@ -9,11 +9,12 @@ const Methods = {
 
 class Fastly {
     /**
-     * @param config { apiKey, tlsConfigurationName }
+     * @param config { apiKey, tlsConfigurationName, allowUntrustedRoot }
      */
     constructor(config) {
         this._apiKey = config.apiKey;
-        this._baseUrl = '';
+        this._baseUrl = 'https://api.fastly.com';
+        this._allowUntrustedRoot = config.allowUntrustedRoot;
         this._tlsConfigurationPromise = _fetchList('/tls/configurations').then(res => {
             return res.data.find(config => config.name === config.tlsConfigurationName).id;
         });
@@ -88,7 +89,7 @@ class Fastly {
             data: {
                 type: 'tls_bulk_certificate',
                 attributes: {
-                    allow_untrusted_root: false,
+                    allow_untrusted_root: this._allowUntrustedRoot,
                     cert_blob: certificate,
                     intermediates_blob: intermediates
                 },
@@ -112,7 +113,7 @@ class Fastly {
                 id: id,
                 type: 'tls_bulk_certificate',
                 attributes: {
-                    allow_untrusted_root: false,
+                    allow_untrusted_root: this._allowUntrustedRoot,
                     cert_blob: certificate,
                     intermediates_blob: intermediates
                 }
